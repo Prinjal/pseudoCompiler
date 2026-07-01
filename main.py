@@ -14,4 +14,5 @@ class Token(object):
         )
     
 
+class Interpreter():
     
