@@ -1,6 +1,5 @@
-PLUS, EOF, MINUS, IDENTIFIER, ASSIGN, MUL, DIVIDE, DIV, MOD, KEYWORD = 'PLUS', 'EOF', 'MINUS', 'IDENTIFIER', 'ASSIGN', 'MULTIPLY', 'DIVIDE', 'DIV', 'MOD', 'KEYWORD'
+PLUS, EOF, MINUS, IDENTIFIER, ASSIGN, MUL, DIVIDE, DIV, MOD,LPAREN,RPAREN, KEYWORD = 'PLUS', 'EOF', 'MINUS', 'IDENTIFIER', 'ASSIGN', 'MULTIPLY', 'DIVIDE', 'DIV', 'MOD','(',')', 'KEYWORD'
 
-# Removed DATATYPE dictionary and replaced with individual variables
 INTEGER = 'INTEGER'
 REAL = 'REAL'
 STRING = 'STRING'
@@ -9,7 +8,7 @@ keyword_list = [
     'OUTPUT', 'INPUT', 'IF', 'THEN', 'ELSE', 'ENDIF', 
     'WHILE', 'DO', 'ENDWHILE', 'REPEAT', 'UNTIL', 
     'FOR', 'TO', 'NEXT', 'FUNCTION', 'PROCEDURE', 
-    'RETURNS', 'ENDFUNCTION', 'ENDPROCEDURE', 'TRUE', 'FALSE'
+    'RETURNS', 'ENDFUNCTION', 'ENDPROCEDURE', 'TRUE', 'FALSE','DIV', 'MOD'
 ]
 
 KEYWORDS = {word: word for word in keyword_list}
@@ -87,8 +86,17 @@ class Lexer():
             elif self.current_char.isalpha():
                 word = self.word()
                 if word in KEYWORDS:
-                    return Token(KEYWORD, word)
+                    if word == "DIV":
+                        self.advance()
+                        return Token(DIV, 'DIV')
+                    
+                    elif  word == "MOD":
+                        self.advance()
+                        return Token(MOD, 'MOD')
+                    
                 return Token(IDENTIFIER, word)
+            
+            
             
             elif self.current_char == "+":
                 self.advance()
@@ -116,13 +124,6 @@ class Lexer():
                 self.advance()
                 return Token(DIVIDE, '/')
             
-            elif self.current_char == "DIV":
-                self.advance()
-                return Token(DIV, 'DIV')
-            
-            elif self.current_char == "MOD":
-                self.advance()
-                return Token(MOD, 'MOD')
             
             else:
                 self.error()
@@ -169,27 +170,42 @@ class Parser():
         else:
             raise SyntaxError()
     
-    def expression(self):
+    def term(self):
+        leftNode = self.factor()
+        while self.tokenList[self.pos].type in [MUL,DIVIDE,DIV,MOD]:
+            operator = self.tokenList[self.pos].type
+            self.eat(operator)
+            rightNode = self.factor()
+            leftNode = BinOpNode(operator, leftNode, rightNode)
+        
+        return leftNode
+
+    def factor(self):
         if self.tokenList[self.pos].type == IDENTIFIER:
-            left_tree = varNode(self.tokenList[self.pos].value)
+            node = varNode(self.tokenList[self.pos].value)
             self.eat(IDENTIFIER)
+            return node
 
         elif self.tokenList[self.pos].type == INTEGER:  
-            left_tree = numNode(self.tokenList[self.pos].value)
-            self.eat(INTEGER)                           
+            node = numNode(self.tokenList[self.pos].value)
+            self.eat(INTEGER)     
+            return node  
 
-        while self.tokenList[self.pos].type in OPERATORS:
+        elif self.tokenList[self.pos].type == LPAREN:  
+            self.eat(LPAREN)    
+            node = self.expression() 
+            self.eat(RPAREN)
+            return node     
+        
+        else:
+                raise SyntaxError()
+
+    def expression(self):
+        left_tree = self.term()
+        while self.tokenList[self.pos].type in [PLUS , MINUS]:
             operator = self.tokenList[self.pos].type 
             self.eat(operator)
-            if self.tokenList[self.pos].type == IDENTIFIER:
-                right_tree = varNode(self.tokenList[self.pos].value)
-                self.eat(IDENTIFIER)
-            elif self.tokenList[self.pos].type == INTEGER:  
-                right_tree = numNode(self.tokenList[self.pos].value)
-                self.eat(INTEGER)                           
-            else:
-                raise SyntaxError()
-            
+            right_tree = self.term()
             left_tree = BinOpNode(operator, left_tree, right_tree)
         
         return left_tree
@@ -289,7 +305,10 @@ class Interpreter():
                 output = left / right
             
             elif node.opr == DIV:
-                output = left - right
+                output = left // right
+            
+            elif node.opr == MOD:
+                output = left % right
             
         return output
             
