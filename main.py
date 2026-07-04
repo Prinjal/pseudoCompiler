@@ -170,6 +170,7 @@ class Parser():
             name = self.tokenList[self.pos].value
             self.eat(IDENTIFIER)
             if self.tokenList[self.pos].type == ASSIGN:
+                 self.eat(ASSIGN)
                  left_tree = self.expression()
             else:
                 raise SyntaxError()
@@ -224,3 +225,70 @@ class Interpreter():
             
     def evaluate(self):
         return self.visit(self.ast)
+    
+# ==================================================
+# TEST RUNNER FOR YOUR INTERPRETER
+# ==================================================
+
+def run_test(input_string):
+    """Runs the full pipeline on a single input string."""
+    print(f'Input: "{input_string}"')
+    try:
+        # 1. Lexer
+        lexer = Lexer(input_string)
+        lexer.tokenize()
+        # Uncomment the line below to see the token list for debugging
+        # print(f"  Tokens: {lexer.list}")
+
+        # 2. Parser
+        parser = Parser(lexer.list)
+        ast_root = parser.parse()
+        
+        if ast_root is None:
+            print("  Result: (Empty input)")
+            return
+
+        # 3. Interpreter
+        interpreter = Interpreter(ast_root)
+        result = interpreter.evaluate()
+        
+        print(f"  Result: {result}")
+        print(f"  Variables: {interpreter.variables}")
+        
+    except SyntaxError as e:
+        print(f"  Syntax Error: {e}")
+    except KeyError as e:
+        print(f"  Runtime Error: Undefined variable {e}")
+    except Exception as e:
+        print(f"  Unexpected Error: {e}")
+    print("-" * 40)
+
+
+# -------- RUN THE TESTS --------
+print("========== INTERPRETER TEST SUITE ==========\n")
+
+test_cases = [
+    # --- Basic Expressions ---
+    "3 + 4",                 # Expected: 7
+    "42",                    # Expected: 42
+    "10 + 20 - 5",          # Expected: 25 (left-to-right: (10+20)-5)
+
+    # --- Variable Assignments ---
+    "x <-- 10",               # Expected: None (stores x=10)
+    "x <-- 3 + 4",            # Expected: None (stores x=7)
+
+    # --- Variable Lookup (Will raise error because fresh interpreter) ---
+    "x + 2",                # Expected: Runtime Error (undefined variable)
+    
+    # --- Invalid Syntax ---
+    "3 +",                  # Expected: Syntax Error
+    
+    # --- Empty Input ---
+    "",                     # Expected: (Empty input)
+]
+
+print("--- Testing individual statements (fresh interpreter each time) ---")
+for test in test_cases:
+    run_test(test)
+
+print("========== TESTS COMPLETE ==========")
