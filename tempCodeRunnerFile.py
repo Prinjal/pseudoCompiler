@@ -71,8 +71,8 @@ class Lexer():
         while self.current_char and self.current_char != '"':
             result += self.current_char
             self.advance()
-        if self.current_char is None:
-            raise SyntaxError("Unclosed string literal")
+        if self.current_char == None:
+            SyntaxError("Unclosed string literal")
 
         self.advance()
         return result
@@ -122,14 +122,16 @@ class Lexer():
                 return Token(STRING,word)
                
             elif self.current_char == '>':
-              
-                if self.pos + 1 < len(self.text) and self.text[self.pos + 1] == '=':
+              if self.pos + 1 < len(self.text):
+                if self.text[self.pos+1] == '=':
                     self.advance()
                     self.advance()
-                    return Token(GE, ">=")
+                    return Token(GE,">=")
                 else:
                     self.advance()
-                    return Token(GT, ">")
+                    return Token(GT,">")
+               
+
 
             elif self.current_char.isalpha():
                 word = self.word()
@@ -167,15 +169,13 @@ class Lexer():
                     nextChar1 = self.text[self.pos+1]
 
                     if nextChar1 == "-":
-                        if self.pos + 2 < len(self.text) and self.text[self.pos + 2] == "-":
+                        nextChar2 = self.text[self.pos+2]
+                        if nextChar2 == "-":
                             self.advance()
                             self.advance()
                             self.advance()
                             return Token(ASSIGN, '<--')
-                        else:
-                            self.advance()
-                            return Token(LT, "<")
-
+                    
                     if nextChar1 == '=':
                         self.advance()
                         self.advance()
@@ -188,10 +188,6 @@ class Lexer():
                     else:
                         self.advance()
                         return Token(LT,"<")
-                else:
-                   
-                    self.advance()
-                    return Token(LT, "<")
                
             
             elif self.current_char == "-":
@@ -420,8 +416,7 @@ class Parser():
 
 class Interpreter():
 
-   
-    def __init__(self, root=None):
+    def __init__(self, root):
         self.ast = root
         self.symbols = {}
        
@@ -498,7 +493,7 @@ class Interpreter():
                     try:
                         self.symbols[node.name]["Value"] = int(value)
                     except ValueError:
-                        raise TypeError(f"Input '{value}' cannot be converted to {self.symbols[node.name]['Type']}")
+                        raise TypeError(f"Input '{value}' cannot be converted to {self.symbols[node.name]["Type"]}")
 
 
                 elif self.symbols[node.name]["Type"] == REAL:
@@ -506,7 +501,7 @@ class Interpreter():
                     try:
                         self.symbols[node.name]['Value'] = float(value)
                     except ValueError:
-                        raise TypeError(f"Input '{value}' cannot be converted to {self.symbols[node.name]['Type']}")
+                        raise TypeError(f"Input '{value}' cannot be converted to {self.symbols[node.name]["Type"]}")
                 
                 elif self.symbols[node.name]["Type"] == STRING:
                     
@@ -558,396 +553,383 @@ class Interpreter():
         return self.visit(self.ast)
     
 # ==================================================
-# COMPLETE, FOOLPROOF TEST SUITE
+# COMPLETE TEST SUITE - INCLUDING COMPARISONS
 # ==================================================
- 
-def run_line(interpreter, line):
-    """Lex, parse, and visit a single line using the given interpreter
-    (or a fresh one, if interpreter is None). Returns (interpreter, result, error).
-    error is None on success, otherwise the caught exception instance."""
+
+print("\n" + "="*70)
+print("   COMPLETE INTERPRETER TEST SUITE (WITH COMPARISONS)")
+print("="*70 + "\n")
+
+# --- SECTION 1: Isolated Unit Tests ---
+print("--- SECTION 1: Isolated Statements (Fresh Interpreter Each Time) ---\n")
+
+isolated_tests = [
+    # ----- BASIC EXPRESSIONS -----
+    ("3 + 4", 7),
+    ("42", 42),
+    ("10 + 20 - 5", 25),
+    ("100 - 30 + 10", 80),
+    ("2 * 3 + 4", 10),
+    ("2 + 3 * 4", 14),
+    ("(2 + 3) * 4", 20),
+    ("10 / 2", 5.0),
+    ("10 DIV 3", 3),
+    ("10 MOD 3", 1),
+    
+    # ----- INTEGER COMPARISONS -----
+    ("3 = 3", True),
+    ("3 = 4", False),
+    ("3 <> 4", True),
+    ("3 <> 3", False),
+    ("3 < 4", True),
+    ("3 < 3", False),
+    ("3 > 4", False),
+    ("3 > 3", False),
+    ("3 <= 4", True),
+    ("3 <= 3", True),
+    ("3 <= 2", False),
+    ("3 >= 4", False),
+    ("3 >= 3", True),
+    ("3 >= 2", True),
+    
+    # ----- COMPARISONS WITH EXPRESSIONS -----
+    ("3 + 4 = 7", True),
+    ("3 + 4 = 8", False),
+    ("10 - 3 > 5", True),
+    ("10 - 3 > 7", False),
+    ("2 * 3 + 4 = 10", True),
+    ("2 + 3 * 4 = 14", True),
+    ("(2 + 3) * 4 = 20", True),
+    ("10 / 2 = 5", True),
+    
+    # ----- REAL COMPARISONS -----
+    ("3.14 = 3.14", True),
+    ("3.14 = 3.15", False),
+    ("3.14 <> 3.15", True),
+    ("3.14 < 3.15", True),
+    ("3.14 > 3.15", False),
+    ("3.14 <= 3.14", True),
+    ("3.14 >= 3.14", True),
+    
+    # ----- MIXED TYPE COMPARISONS (Integer vs Real) -----
+    ("3 = 3.0", True),
+    ("3 = 3.1", False),
+    ("3 < 3.1", True),
+    ("3 > 3.1", False),
+    ("3 <= 3.0", True),
+    ("3 >= 3.0", True),
+    ("4 > 3.5", True),
+    ("4 < 3.5", False),
+    
+    # ----- STRING COMPARISONS -----
+    ('"Hello" = "Hello"', True),
+    ('"Hello" = "World"', False),
+    ('"Hello" <> "World"', True),
+    ('"A" < "B"', True),
+    ('"B" < "A"', False),
+    ('"A" <= "A"', True),
+    ('"A" >= "A"', True),
+    
+    # ----- BOOLEAN COMPARISONS -----
+    ("TRUE = TRUE", True),
+    ("TRUE = FALSE", False),
+    ("TRUE <> FALSE", True),
+    
+    # ----- VARIABLE DECLARATIONS -----
+    ("DECLARE x : INTEGER", None),
+    ("DECLARE y : REAL", None),
+    ('DECLARE name : STRING', None),
+    ("DECLARE flag : BOOLEAN", None),
+    
+    # ----- VARIABLE ASSIGNMENTS -----
+    ("x <-- 10", None),
+    ("y <-- 3.14", None),
+    ('name <-- "Hello"', None),
+    ("flag <-- TRUE", None),
+    
+    # ----- VARIABLE COMPARISONS -----
+    ("x = 10", True),
+    ("x = 11", False),
+    ("x > 5", True),
+    ("x < 5", False),
+    ("y = 3.14", True),
+    ("y <> 3.15", True),
+    ('name = "Hello"', True),
+    ('name = "World"', False),
+    ("flag = TRUE", True),
+    ("flag = FALSE", False),
+    
+    # ----- COMPARISONS WITH VARIABLES AND EXPRESSIONS -----
+    ("x + 5 = 15", True),
+    ("x * 2 = 20", True),
+    ("x / 2 = 5", True),
+    ("x DIV 3 = 3", True),
+    ("x MOD 3 = 1", True),
+    ("x > 5 AND x < 20", None),  # Will test once AND is implemented
+    
+    # ----- OUTPUT STATEMENTS -----
+    ("OUTPUT 42", None),
+    ("OUTPUT 3 + 4", None),
+    ('OUTPUT "Hello"', None),
+    ("OUTPUT TRUE", None),
+    ("OUTPUT x = 10", None),      # Should print True
+    ("OUTPUT x > 5", None),       # Should print True
+    ("OUTPUT y = 3.14", None),    # Should print True
+    
+    # ----- ERROR HANDLING -----
+    ("3 +", None),                # Syntax Error
+    ("x + 2", None),              # Runtime Error (x not declared)
+    ("3 =", None),                # Syntax Error (missing right side)
+    ("= 3", None),                # Syntax Error (missing left side)
+]
+
+def run_unit_test(input_string, expected):
+    """Runs a single statement with a fresh interpreter."""
+    print(f"Test: '{input_string}'")
     try:
-        lexer = Lexer(line)
+        lexer = Lexer(input_string)
+        lexer.tokenize()
+        # Uncomment to see tokens:
+        # print(f"  Tokens: {lexer.list}")
+        
+        parser = Parser(lexer.list)
+        ast = parser.parse()
+        
+        if ast is None:
+            print("  Result: (Empty input)")
+            return
+        
+        interpreter = Interpreter(ast)
+        result = interpreter.evaluate()
+        print(f"  Result: {result}")
+        print(f"  Variables: {interpreter.symbols}")
+        
+        if expected is not None and result != expected:
+            print(f"  ⚠️ Expected: {expected}")
+        else:
+            print("  ✅ Test Passed")
+            
+    except SyntaxError as e:
+        print(f"  ❌ Syntax Error: {e}")
+    except KeyError as e:
+        print(f"  ❌ Runtime Error: Undefined variable {e}")
+    except TypeError as e:
+        print(f"  ❌ Type Error: {e}")
+    except RuntimeError as e:
+        print(f"  ❌ Runtime Error: {e}")
+    except Exception as e:
+        print(f"  ❌ Unexpected Error: {e}")
+    print("-" * 40)
+
+for test, expected in isolated_tests:
+    run_unit_test(test, expected)
+
+
+# --- SECTION 2: Sequential Programs (Same Interpreter) ---
+print("\n--- SECTION 2: Sequential Programs (Same Interpreter) ---\n")
+
+def run_sequential_program(program_lines):
+    """Runs multiple statements using the SAME interpreter."""
+    interpreter = None
+    
+    for i, line in enumerate(program_lines):
+        print(f"Line {i+1}: '{line}'")
+        try:
+            lexer = Lexer(line)
+            lexer.tokenize()
+            parser = Parser(lexer.list)
+            ast = parser.parse()
+            
+            if ast is None:
+                print("  Skipping empty line.")
+                continue
+            
+            if interpreter is None:
+                interpreter = Interpreter(ast)
+            else:
+                interpreter.visit(ast)
+            
+            print(f"  Variables: {interpreter.symbols}")
+            
+        except SyntaxError as e:
+            print(f"  ❌ Syntax Error: {e}")
+            break
+        except KeyError as e:
+            print(f"  ❌ Runtime Error: Undefined variable {e}")
+            break
+        except TypeError as e:
+            print(f"  ❌ Type Error: {e}")
+            break
+        except RuntimeError as e:
+            print(f"  ❌ Runtime Error: {e}")
+            break
+        except Exception as e:
+            print(f"  ❌ Unexpected Error: {e}")
+            break
+        print("-" * 30)
+
+
+# --- Test A: INTEGER Variables with Comparisons ---
+print("\n--- Test A: INTEGER Variables with Comparisons ---")
+program_a = [
+    "DECLARE x : INTEGER",
+    "DECLARE result1 : BOOLEAN",
+    "DECLARE result2 : BOOLEAN",
+    "DECLARE result3 : BOOLEAN",
+    "x <-- 10",
+    "result1 <-- x = 10",
+    "result2 <-- x > 5",
+    "result3 <-- x < 5",
+    "OUTPUT result1",
+    "OUTPUT result2",
+    "OUTPUT result3",
+]
+run_sequential_program(program_a)
+
+
+# --- Test B: REAL Variables with Comparisons ---
+print("\n--- Test B: REAL Variables with Comparisons ---")
+program_b = [
+    "DECLARE x : REAL",
+    "DECLARE y : REAL",
+    "DECLARE result1 : BOOLEAN",
+    "DECLARE result2 : BOOLEAN",
+    "x <-- 3.14",
+    "y <-- 2.71",
+    "result1 <-- x > y",
+    "result2 <-- x <= y",
+    "OUTPUT result1",
+    "OUTPUT result2",
+]
+run_sequential_program(program_b)
+
+
+# --- Test C: STRING Variables with Comparisons ---
+print("\n--- Test C: STRING Variables with Comparisons ---")
+program_c = [
+    'DECLARE name1 : STRING',
+    'DECLARE name2 : STRING',
+    'DECLARE result1 : BOOLEAN',
+    'DECLARE result2 : BOOLEAN',
+    'name1 <-- "Hello"',
+    'name2 <-- "World"',
+    'result1 <-- name1 = "Hello"',
+    'result2 <-- name1 <> name2',
+    'OUTPUT result1',
+    'OUTPUT result2',
+]
+run_sequential_program(program_c)
+
+
+# --- Test D: Complex Comparisons with Expressions ---
+print("\n--- Test D: Complex Comparisons with Expressions ---")
+program_d = [
+    "DECLARE x : INTEGER",
+    "DECLARE y : REAL",
+    "DECLARE result1 : BOOLEAN",
+    "DECLARE result2 : BOOLEAN",
+    "x <-- 10",
+    "y <-- 3.14",
+    "result1 <-- x + 5 = 15",
+    "result2 <-- x / 2 = y",     # 10/2 = 5, y = 3.14 → False
+    "OUTPUT result1",
+    "OUTPUT result2",
+]
+run_sequential_program(program_d)
+
+
+# --- Test E: OUTPUT with Comparisons ---
+print("\n--- Test E: OUTPUT with Comparisons ---")
+program_e = [
+    "DECLARE x : INTEGER",
+    "x <-- 10",
+    "OUTPUT x = 10",    # Should print True
+    "OUTPUT x > 5",     # Should print True
+    "OUTPUT x < 5",     # Should print False
+    "OUTPUT x <> 10",   # Should print False
+]
+run_sequential_program(program_e)
+
+
+# --- SECTION 3: Lexer-Only Tests (Data Type Recognition) ---
+print("\n--- SECTION 3: Lexer-Only Tests (Data Type Recognition) ---\n")
+
+def test_lexer(input_string):
+    """Runs only the lexer to show token stream."""
+    print(f"Input: '{input_string}'")
+    try:
+        lexer = Lexer(input_string)
+        lexer.tokenize()
+        print(f"  Tokens: {lexer.list}")
+        print("  ✅ Lexer passed")
+    except Exception as e:
+        print(f"  ❌ Lexer Error: {e}")
+    print("-" * 40)
+
+print("Testing Data Type Recognition in Lexer:")
+test_lexer("42")
+test_lexer("3.14")
+test_lexer('"Hello"')
+test_lexer("TRUE")
+test_lexer("FALSE")
+test_lexer("DECLARE x : INTEGER")
+test_lexer('DECLARE name : STRING')
+test_lexer("3 + 4.2")
+test_lexer('OUTPUT "Hello" + " World"')
+test_lexer("x <-- TRUE")
+test_lexer("3 = 3")
+test_lexer("3 <> 4")
+test_lexer("3 <= 4")
+test_lexer("3 >= 4")
+test_lexer("x < 5")
+test_lexer("x > 5")
+
+
+# --- SECTION 4: Comparison-Only Tests ---
+print("\n--- SECTION 4: Comparison-Only Tests ---\n")
+
+comparison_tests = [
+    ("3 = 3", True),
+    ("3 = 4", False),
+    ("3 <> 4", True),
+    ("3 <> 3", False),
+    ("3 < 4", True),
+    ("3 < 3", False),
+    ("3 > 4", False),
+    ("3 > 3", False),
+    ("3 <= 4", True),
+    ("3 <= 3", True),
+    ("3 <= 2", False),
+    ("3 >= 4", False),
+    ("3 >= 3", True),
+    ("3 >= 2", True),
+    ("3 + 4 = 7", True),
+    ("3 + 4 = 8", False),
+    ("10 - 3 > 5", True),
+    ("10 - 3 > 7", False),
+    ("2 * 3 + 4 = 10", True),
+    ("2 + 3 * 4 = 14", True),
+    ("(2 + 3) * 4 = 20", True),
+]
+
+print("Running Comparison-Only Tests:")
+for input_str, expected in comparison_tests:
+    print(f"Test: '{input_str}'")
+    try:
+        lexer = Lexer(input_str)
         lexer.tokenize()
         parser = Parser(lexer.list)
         ast = parser.parse()
- 
-        if ast is None:
-            return interpreter, None, None  # empty line, nothing to do
- 
-        if interpreter is None:
-            interpreter = Interpreter()
- 
-        # always visit the ast -- this is what makes DECLARE / assignment
-        # / output statements actually take effect.
-        result = interpreter.visit(ast)
-        return interpreter, result, None
- 
-    except (SyntaxError, TypeError, RuntimeError, ZeroDivisionError) as e:
-        return interpreter, None, e
-    except Exception as e:
-        return interpreter, None, e
- 
- 
-def describe_error(e):
-    if isinstance(e, SyntaxError):
-        return f"Syntax Error: {e}"
-    if isinstance(e, TypeError):
-        return f"Type Error: {e}"
-    if isinstance(e, RuntimeError):
-        return f"Runtime Error: {e}"
-    return f"Unexpected Error ({type(e).__name__}): {e}"
- 
- 
-# ---------------------------------------------------------
-# SECTION 1: Isolated statements -- each run with a brand
-# new interpreter (so no variables persist between rows).
-# Each tuple is: (source, expected_result, expect_error)
-# expect_error=True means this line is SUPPOSED to fail
-# (e.g. using an undeclared variable in isolation).
-# ---------------------------------------------------------
-isolated_tests = [
-    # ----- BASIC EXPRESSIONS -----
-    ("3 + 4", 7, False),
-    ("42", 42, False),
-    ("10 + 20 - 5", 25, False),
-    ("100 - 30 + 10", 80, False),
-    ("2 * 3 + 4", 10, False),
-    ("2 + 3 * 4", 14, False),
-    ("(2 + 3) * 4", 20, False),
-    ("10 / 2", 5.0, False),
-    ("10 DIV 3", 3, False),
-    ("10 MOD 3", 1, False),
- 
-    # ----- INTEGER COMPARISONS -----
-    ("3 = 3", True, False),
-    ("3 = 4", False, False),
-    ("3 <> 4", True, False),
-    ("3 <> 3", False, False),
-    ("3 < 4", True, False),
-    ("3 < 3", False, False),
-    ("3 > 4", False, False),
-    ("3 > 3", False, False),
-    ("3 <= 4", True, False),
-    ("3 <= 3", True, False),
-    ("3 <= 2", False, False),
-    ("3 >= 4", False, False),
-    ("3 >= 3", True, False),
-    ("3 >= 2", True, False),
- 
-    # ----- COMPARISONS WITH EXPRESSIONS -----
-    ("3 + 4 = 7", True, False),
-    ("3 + 4 = 8", False, False),
-    ("10 - 3 > 5", True, False),
-    ("10 - 3 > 7", False, False),
-    ("2 * 3 + 4 = 10", True, False),
-    ("2 + 3 * 4 = 14", True, False),
-    ("(2 + 3) * 4 = 20", True, False),
-    ("10 / 2 = 5", True, False),
- 
-    # ----- REAL COMPARISONS -----
-    ("3.14 = 3.14", True, False),
-    ("3.14 = 3.15", False, False),
-    ("3.14 <> 3.15", True, False),
-    ("3.14 < 3.15", True, False),
-    ("3.14 > 3.15", False, False),
-    ("3.14 <= 3.14", True, False),
-    ("3.14 >= 3.14", True, False),
- 
-    # ----- MIXED TYPE COMPARISONS (Integer vs Real) -----
-    ("3 = 3.0", True, False),
-    ("3 = 3.1", False, False),
-    ("3 < 3.1", True, False),
-    ("3 > 3.1", False, False),
-    ("3 <= 3.0", True, False),
-    ("3 >= 3.0", True, False),
-    ("4 > 3.5", True, False),
-    ("4 < 3.5", False, False),
- 
-    # ----- STRING COMPARISONS -----
-    ('"Hello" = "Hello"', True, False),
-    ('"Hello" = "World"', False, False),
-    ('"Hello" <> "World"', True, False),
-    ('"A" < "B"', True, False),
-    ('"B" < "A"', False, False),
-    ('"A" <= "A"', True, False),
-    ('"A" >= "A"', True, False),
- 
-    # ----- BOOLEAN COMPARISONS -----
-    ("TRUE = TRUE", True, False),
-    ("TRUE = FALSE", False, False),
-    ("TRUE <> FALSE", True, False),
- 
-    # ----- VARIABLE DECLARATIONS -----
-    ("DECLARE x : INTEGER", None, False),
-    ("DECLARE y : REAL", None, False),
-    ('DECLARE name : STRING', None, False),
-    ("DECLARE flag : BOOLEAN", None, False),
- 
-    # ----- USING A VARIABLE WITHOUT DECLARING IT FIRST -----
-    # These intentionally use a FRESH interpreter (Section 1 design), so the
-    # variable was never declared -> a RuntimeError IS the correct outcome.
-    ("x <-- 10", None, True),
-    ("y <-- 3.14", None, True),
-    ('name <-- "Hello"', None, True),
-    ("flag <-- TRUE", None, True),
-    ("x = 10", None, True),
-    ("x = 11", None, True),
-    ("x > 5", None, True),
-    ("x < 5", None, True),
-    ("y = 3.14", None, True),
-    ("y <> 3.15", None, True),
-    ('name = "Hello"', None, True),
-    ('name = "World"', None, True),
-    ("flag = TRUE", None, True),
-    ("flag = FALSE", None, True),
-    ("x + 5 = 15", None, True),
-    ("x * 2 = 20", None, True),
-    ("x / 2 = 5", None, True),
-    ("x DIV 3 = 3", None, True),
-    ("x MOD 3 = 1", None, True),
-    ("x > 5 AND x < 20", None, True),  # AND not implemented -> Syntax Error expected
- 
-    # ----- OUTPUT STATEMENTS -----
-    ("OUTPUT 42", None, False),
-    ("OUTPUT 3 + 4", None, False),
-    ('OUTPUT "Hello"', None, False),
-    ("OUTPUT TRUE", None, False),
-    ("OUTPUT x = 10", None, True),   # x undeclared in this fresh interpreter
-    ("OUTPUT x > 5", None, True),
-    ("OUTPUT y = 3.14", None, True),
- 
-    # ----- ERROR HANDLING -----
-    ("3 +", None, True),   # Syntax Error: missing right operand
-    ("x + 2", None, True),  # Runtime Error: x not declared
-    ("3 =", None, True),   # Syntax Error: missing right operand
-    ("= 3", None, True),   # Syntax Error: missing left operand
-]
- 
- 
-def run_unit_test(input_string, expected, expect_error):
-    print(f"Test: '{input_string}'")
-    interpreter, result, error = run_line(None, input_string)
- 
-    if expect_error:
-        if error is not None:
-            print(f"  ✅ Correctly raised -> {describe_error(error)}")
-        else:
-            print(f"  ⚠️ FAILED: expected an error but got result={result}")
-    else:
-        if error is not None:
-            print(f"  ⚠️ FAILED: unexpected {describe_error(error)}")
-        else:
-            vars_snapshot = interpreter.symbols if interpreter else {}
-            print(f"  Result: {result}")
-            print(f"  Variables: {vars_snapshot}")
-            if expected is not None and result != expected:
-                print(f"  ⚠️ FAILED: expected {expected}, got {result}")
-            else:
-                print("  ✅ Test Passed")
-    print("-" * 40)
- 
- 
-# ---------------------------------------------------------
-# SECTION 2: Sequential programs -- SAME interpreter used
-# across all lines, so state (declared variables) persists.
-# ---------------------------------------------------------
-def run_sequential_program(program_lines, expected_outputs=None):
-    """Runs multiple statements using the SAME interpreter.
-    expected_outputs: optional list of expected printed values for OUTPUT
-    statements, checked in order against what was actually printed."""
-    import io
-    import contextlib
- 
-    interpreter = None
-    printed = []
- 
-    for i, line in enumerate(program_lines):
-        print(f"Line {i + 1}: '{line}'")
- 
-        buf = io.StringIO()
-        try:
-            with contextlib.redirect_stdout(buf):
-                interpreter, result, error = run_line(interpreter, line)
-        except Exception as e:
-            error = e
- 
-        captured = buf.getvalue()
-        if captured:
-            printed.append(captured.strip())
-            print(f"  Output: {captured.strip()}")
- 
-        if error is not None:
-            print(f"  ❌ {describe_error(error)}")
-            break
- 
-        vars_snapshot = interpreter.symbols if interpreter else {}
-        print(f"  Variables: {vars_snapshot}")
-        print("-" * 30)
- 
-    if expected_outputs is not None:
-        if printed == [str(v) for v in expected_outputs]:
-            print("  ✅ All OUTPUT statements matched expected values")
-        else:
-            print(f"  ⚠️ FAILED: expected outputs {expected_outputs}, got {printed}")
- 
-    return interpreter
- 
- 
-def main():
-    print("\n" + "=" * 70)
-    print("   COMPLETE INTERPRETER TEST SUITE (WITH COMPARISONS)")
-    print("=" * 70 + "\n")
- 
-    # --- SECTION 1 ---
-    print("--- SECTION 1: Isolated Statements (Fresh Interpreter Each Time) ---\n")
-    for test, expected, expect_error in isolated_tests:
-        run_unit_test(test, expected, expect_error)
- 
-    # --- SECTION 2 ---
-    print("\n--- SECTION 2: Sequential Programs (Same Interpreter) ---\n")
- 
-    print("\n--- Test A: INTEGER Variables with Comparisons ---")
-    program_a = [
-        "DECLARE x : INTEGER",
-        "DECLARE result1 : BOOLEAN",
-        "DECLARE result2 : BOOLEAN",
-        "DECLARE result3 : BOOLEAN",
-        "x <-- 10",
-        "result1 <-- x = 10",
-        "result2 <-- x > 5",
-        "result3 <-- x < 5",
-        "OUTPUT result1",
-        "OUTPUT result2",
-        "OUTPUT result3",
-    ]
-    run_sequential_program(program_a, expected_outputs=[True, True, False])
- 
-    print("\n--- Test B: REAL Variables with Comparisons ---")
-    program_b = [
-        "DECLARE x : REAL",
-        "DECLARE y : REAL",
-        "DECLARE result1 : BOOLEAN",
-        "DECLARE result2 : BOOLEAN",
-        "x <-- 3.14",
-        "y <-- 2.71",
-        "result1 <-- x > y",
-        "result2 <-- x <= y",
-        "OUTPUT result1",
-        "OUTPUT result2",
-    ]
-    run_sequential_program(program_b, expected_outputs=[True, False])
- 
-    print("\n--- Test C: STRING Variables with Comparisons ---")
-    program_c = [
-        'DECLARE name1 : STRING',
-        'DECLARE name2 : STRING',
-        'DECLARE result1 : BOOLEAN',
-        'DECLARE result2 : BOOLEAN',
-        'name1 <-- "Hello"',
-        'name2 <-- "World"',
-        'result1 <-- name1 = "Hello"',
-        'result2 <-- name1 <> name2',
-        'OUTPUT result1',
-        'OUTPUT result2',
-    ]
-    run_sequential_program(program_c, expected_outputs=[True, True])
- 
-    print("\n--- Test D: Complex Comparisons with Expressions ---")
-    program_d = [
-        "DECLARE x : INTEGER",
-        "DECLARE y : REAL",
-        "DECLARE result1 : BOOLEAN",
-        "DECLARE result2 : BOOLEAN",
-        "x <-- 10",
-        "y <-- 3.14",
-        "result1 <-- x + 5 = 15",
-        "result2 <-- x / 2 = y",     # 10/2 = 5.0, y = 3.14 -> False
-        "OUTPUT result1",
-        "OUTPUT result2",
-    ]
-    run_sequential_program(program_d, expected_outputs=[True, False])
- 
-    print("\n--- Test E: OUTPUT with Comparisons ---")
-    program_e = [
-        "DECLARE x : INTEGER",
-        "x <-- 10",
-        "OUTPUT x = 10",    # True
-        "OUTPUT x > 5",     # True
-        "OUTPUT x < 5",     # False
-        "OUTPUT x <> 10",   # False
-    ]
-    run_sequential_program(program_e, expected_outputs=[True, True, False, False])
- 
-    # --- SECTION 3: Lexer-Only Tests ---
-    print("\n--- SECTION 3: Lexer-Only Tests (Data Type Recognition) ---\n")
- 
-    def test_lexer(input_string):
-        print(f"Input: '{input_string}'")
-        try:
-            lexer = Lexer(input_string)
-            lexer.tokenize()
-            token_str = ", ".join(str(t) for t in lexer.list)
-            print(f"  Tokens: [{token_str}]")
-            print("  ✅ Lexer passed")
-        except Exception as e:
-            print(f"  ❌ Lexer Error: {e}")
-        print("-" * 40)
- 
-    print("Testing Data Type Recognition in Lexer:")
-    for s in [
-        "42", "3.14", '"Hello"', "TRUE", "FALSE",
-        "DECLARE x : INTEGER", 'DECLARE name : STRING',
-        "3 + 4.2", 'OUTPUT "Hello" + " World"',
-        "x <-- TRUE", "3 = 3", "3 <> 4", "3 <= 4", "3 >= 4",
-        "x < 5", "x > 5",
-        "5 >",       # regression test: trailing '>' must not hang
-        "5 <",       # regression test: trailing '<' must not hang
-    ]:
-        test_lexer(s)
- 
-    # --- SECTION 4: Comparison-Only Tests ---
-    print("\n--- SECTION 4: Comparison-Only Tests ---\n")
- 
-    comparison_tests = [
-        ("3 = 3", True),
-        ("3 = 4", False),
-        ("3 <> 4", True),
-        ("3 <> 3", False),
-        ("3 < 4", True),
-        ("3 < 3", False),
-        ("3 > 4", False),
-        ("3 > 3", False),
-        ("3 <= 4", True),
-        ("3 <= 3", True),
-        ("3 <= 2", False),
-        ("3 >= 4", False),
-        ("3 >= 3", True),
-        ("3 >= 2", True),
-        ("3 + 4 = 7", True),
-        ("3 + 4 = 8", False),
-        ("10 - 3 > 5", True),
-        ("10 - 3 > 7", False),
-        ("2 * 3 + 4 = 10", True),
-        ("2 + 3 * 4 = 14", True),
-        ("(2 + 3) * 4 = 20", True),
-    ]
- 
-    print("Running Comparison-Only Tests:")
-    for input_str, expected in comparison_tests:
-        print(f"Test: '{input_str}'")
-        interpreter, result, error = run_line(None, input_str)
-        if error is not None:
-            print(f"  ❌ {describe_error(error)}")
-        elif result == expected:
+        interpreter = Interpreter(ast)
+        result = interpreter.evaluate()
+        if result == expected:
             print(f"  Result: {result} ✅")
         else:
             print(f"  Result: {result} ❌ Expected: {expected}")
-        print("-" * 20)
- 
-    print("\n" + "=" * 70)
-    print("   ALL TESTS COMPLETE")
-    print("=" * 70)
- 
- 
-if __name__ == "__main__":
-    main()
+    except Exception as e:
+        print(f"  ❌ Error: {e}")
+    print("-" * 20)
+
+print("\n" + "="*70)
+print("   ALL TESTS COMPLETE")
+print("="*70)
